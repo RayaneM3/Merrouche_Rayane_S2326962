@@ -1,0 +1,35 @@
+<resources>
+    <string name="app_name">Scot Traffic</string>
+    <string name="tab_list">Situations</string>
+    <string name="tab_search">Search</string>
+    <string name="tab_map">Map</string>
+    <string name="filter_all">All</string>
+    <string name="filter_incidents">Incidents</string>
+    <string name="filter_roadworks">Roadworks</string>
+    <string name="legend_title">Roadworks duration:</string>
+    <string name="legend_short">≤ 7 days</string>
+    <string name="legend_medium">≤ 3 months</string>
+    <string name="legend_long">&gt; 3 months</string>
+    <string name="menu_refresh">Refresh now</string>
+    <string name="menu_interval">Auto-update interval</string>
+    <string name="menu_about">About / data source</string>
+    <string name="interval_60">Every hour</string>
+    <string name="interval_15">Every 15 minutes</string>
+    <string name="interval_5">Every 5 minutes</string>
+    <string name="interval_1">Every minute (demo)</string>
+    <string name="details_placeholder">Select a situation to see its details here.</string>
+    <string name="show_on_map">Show on map</string>
+    <string name="close">Close</string>
+    <string name="search_road_title">Search by road</string>
+    <string name="search_road_hint">Road (M8, A90, A74(M)…) or place</string>
+    <string name="search">Search</string>
+    <string name="search_distance_title">Search by distance</string>
+    <string name="search_from_my_location">My location</string>
+    <string name="search_from_fixed">GCU, Glasgow</string>
+    <string name="search_nearby">Find nearby</string>
+    <string name="search_modify">Modify search</string>
+    <string name="map_show_all">Show all</string>
+    <string name="no_results">No situations found.</string>
+    <string name="data_credit">Contains Traffic Scotland data</string>
+    <string name="about_text">Real-time unplanned events and roadworks on the Scottish trunk road network.\n\nData source: Traffic Scotland DATEX II feeds (Transport Scotland). Contains Traffic Scotland data.\n\nIcons: original vector drawings made for this app.\n\nThe data is downloaded at start-up and then automatically at the selected interval. When there is no connection, the most recent saved data is shown.</string>
+</resources>

@@ -1,0 +1,32 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- NoActionBar: a Toolbar in activity_main.xml is used as the app bar (with the options menu) -->
+    <style name="Base.Theme.Merrouche_Rayane_S2326962" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/brand_primary</item>
+        <item name="colorOnPrimary">@color/brand_on_primary</item>
+        <item name="colorSecondary">@color/brand_secondary</item>
+    </style>
+
+    <style name="Theme.Merrouche_Rayane_S2326962" parent="Base.Theme.Merrouche_Rayane_S2326962" />
+
+    <!-- Options menu popup: readable dark text on a light surface (dark toolbar otherwise leaks white text) -->
+    <style name="ToolbarPopup" parent="ThemeOverlay.Material3.Light" />
+
+    <!-- Small coloured label (delay level, duration) -->
+    <style name="Badge">
+        <item name="android:textSize">12sp</item>
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:paddingStart">6dp</item>
+        <item name="android:paddingEnd">6dp</item>
+        <item name="android:paddingTop">1dp</item>
+        <item name="android:paddingBottom">1dp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="SectionTitle">
+        <item name="android:textSize">16sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">?attr/colorPrimary</item>
+        <item name="android:layout_marginTop">16dp</item>
+        <item name="android:layout_marginBottom">4dp</item>
+    </style>
+</resources>
