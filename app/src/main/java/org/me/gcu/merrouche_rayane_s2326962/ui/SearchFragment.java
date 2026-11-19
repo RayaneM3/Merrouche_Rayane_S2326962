@@ -7,6 +7,9 @@ import android.location.Location;
 import android.location.LocationManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.CancellationSignal;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
@@ -44,6 +47,7 @@ import java.util.List;
 public class SearchFragment extends Fragment implements SituationAdapter.OnSituationClickListener
 {
     private static final String TAG = "SearchFragment";
+    private static final long LOCATION_TIMEOUT_MS = 10_000;
 
     private TrafficViewModel viewModel;
     private AutoCompleteTextView roadInput;
@@ -53,10 +57,11 @@ public class SearchFragment extends Fragment implements SituationAdapter.OnSitua
     private View searchForm, resultsHeader, resultsEmpty;
     private SituationAdapter adapter;
 
-    // Runtime permission request (coarse location is a "dangerous" permission)
-    private final ActivityResultLauncher<String> locationPermission =
-            registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted -> {
-                if (granted)
+    // Runtime permission request (location is a "dangerous" permission). Both precise and
+    // approximate are asked for: on Android 12+ the user can choose to share only the approximate one
+    private final ActivityResultLauncher<String[]> locationPermission =
+            registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
+                if (hasLocationPermission())
                     searchFromDeviceLocation();
                 else
                 {
@@ -64,6 +69,11 @@ public class SearchFragment extends Fragment implements SituationAdapter.OnSitua
                     searchFromFixedLocation();
                 }
             });
+
+    // Pending one-off location request (cancelled on timeout or when the screen closes)
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private CancellationSignal locationRequest;
+    private Runnable locationTimeout;
 
     public SearchFragment()
     {
@@ -193,11 +203,21 @@ public class SearchFragment extends Fragment implements SituationAdapter.OnSitua
             searchFromFixedLocation();
             return;
         }
-        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_COARSE_LOCATION)
-                == PackageManager.PERMISSION_GRANTED)
+        if (hasLocationPermission())
             searchFromDeviceLocation();
         else
-            locationPermission.launch(Manifest.permission.ACCESS_COARSE_LOCATION);
+            locationPermission.launch(new String[] {
+                    Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION });
+    }
+
+    private boolean granted(String permission)
+    {
+        return ContextCompat.checkSelfPermission(requireContext(), permission) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private boolean hasLocationPermission()
+    {
+        return granted(Manifest.permission.ACCESS_COARSE_LOCATION) || granted(Manifest.permission.ACCESS_FINE_LOCATION);
     }
 
     private void searchFromFixedLocation()
@@ -207,14 +227,19 @@ public class SearchFragment extends Fragment implements SituationAdapter.OnSitua
         setFormVisible(false);
     }
 
-    /** Coarse location from the phone (network/passive provider), using the Android LocationManager */
+    /**
+     * Location of the phone, using the Android LocationManager: the most recent last-known location
+     * of the allowed providers or, if there is none, one fresh fix (GPS if precise location was
+     * allowed, otherwise the network provider). If nothing arrives within 10 s the fixed location
+     * is used instead, so the search never hangs.
+     */
     private void searchFromDeviceLocation()
     {
         LocationManager lm = (LocationManager) requireContext().getSystemService(Context.LOCATION_SERVICE);
-        Location best = null;
         try
         {
-            for (String provider : lm.getProviders(true))
+            Location best = null;
+            for (String provider : lm.getProviders(true)) // only the providers this app may use
             {
                 Location l = lm.getLastKnownLocation(provider);
                 if (l != null && (best == null || l.getTime() > best.getTime()))
@@ -225,24 +250,70 @@ public class SearchFragment extends Fragment implements SituationAdapter.OnSitua
                 useLocation(best);
                 return;
             }
-            // No recent location stored: ask for a fresh one (API 30+), otherwise use the fixed one
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER))
+
+            String provider = null;
+            if (granted(Manifest.permission.ACCESS_FINE_LOCATION) && lm.isProviderEnabled(LocationManager.GPS_PROVIDER))
+                provider = LocationManager.GPS_PROVIDER;
+            else if (lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER))
+                provider = LocationManager.NETWORK_PROVIDER;
+            if (provider == null)
             {
-                Toast.makeText(requireContext(), "Finding your location…", Toast.LENGTH_SHORT).show();
-                lm.getCurrentLocation(LocationManager.NETWORK_PROVIDER, null,
-                        ContextCompat.getMainExecutor(requireContext()), location -> {
-                            if (!isAdded()) return;
-                            if (location != null) useLocation(location);
-                            else fallbackToFixed();
-                        });
+                fallbackToFixed();
                 return;
             }
+
+            Toast.makeText(requireContext(), "Finding your location…", Toast.LENGTH_SHORT).show();
+            cancelLocationRequest();
+            locationTimeout = () -> {
+                Log.w(TAG, "No location within " + LOCATION_TIMEOUT_MS + " ms");
+                cancelLocationRequest();
+                if (isAdded()) fallbackToFixed();
+            };
+            handler.postDelayed(locationTimeout, LOCATION_TIMEOUT_MS);
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
+            {
+                locationRequest = new CancellationSignal();
+                lm.getCurrentLocation(provider, locationRequest, ContextCompat.getMainExecutor(requireContext()),
+                        this::onFreshLocation);
+            }
+            else
+            {
+                lm.requestSingleUpdate(provider, this::onFreshLocation, Looper.getMainLooper());
+            }
         }
-        catch (SecurityException e)
+        catch (SecurityException | IllegalArgumentException e)
         {
-            Log.e(TAG, "Location permission missing", e);
+            Log.e(TAG, "Location not available", e);
+            cancelLocationRequest();
+            fallbackToFixed();
         }
-        fallbackToFixed();
+    }
+
+    private void onFreshLocation(@Nullable Location location)
+    {
+        if (locationTimeout == null) return; // already timed out or cancelled
+        cancelLocationRequest();
+        if (!isAdded()) return;
+        if (location != null) useLocation(location);
+        else fallbackToFixed();
+    }
+
+    private void cancelLocationRequest()
+    {
+        if (locationTimeout != null)
+            handler.removeCallbacks(locationTimeout);
+        locationTimeout = null;
+        if (locationRequest != null)
+            locationRequest.cancel();
+        locationRequest = null;
+    }
+
+    @Override
+    public void onDestroyView()
+    {
+        cancelLocationRequest();
+        super.onDestroyView();
     }
 
     private void useLocation(Location l)

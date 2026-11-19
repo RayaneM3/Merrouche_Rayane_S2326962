@@ -306,9 +306,14 @@ public class TrafficRepository
         connection.setConnectTimeout(TIMEOUT_MS);
         connection.setReadTimeout(TIMEOUT_MS);
         connection.setRequestProperty("Authorization", credentials.authorizationHeader());
+        // With a wrong client ID/key the server redirects (HTTP 302) to its sign-in web page instead
+        // of answering 401, so redirects are not followed: they mean the credentials were refused
+        connection.setInstanceFollowRedirects(false);
         try
         {
             int code = connection.getResponseCode();
+            if (code >= 300 && code < 400)
+                throw new IOException("Traffic Scotland refused the client ID/key: HTTP " + code);
             if (code != HttpURLConnection.HTTP_OK)
             {
                 String hint = (code == 401 || code == 403) ? " (check your client ID/key)" : "";
