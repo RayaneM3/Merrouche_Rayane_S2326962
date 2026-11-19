@@ -87,7 +87,6 @@ public class DetailsFragment extends Fragment
         }
         placeholder.setVisibility(View.GONE);
         scroll.setVisibility(View.VISIBLE);
-        scroll.scrollTo(0, 0);
 
         icon.setImageResource(SituationStyle.iconFor(s.getKind()));
         type.setText(s.getTypeLabel());
@@ -150,7 +149,7 @@ public class DetailsFragment extends Fragment
         else
         {
             if (impact.getOperationalLanes() != null)
-                addRow("Lanes open", impact.getOperationalLanes() == 0 ? "None (road closed)" : String.valueOf(impact.getOperationalLanes()));
+                addRow("Lanes open", impact.getOperationalLanes() == 0 ? "0 (no lanes open)" : String.valueOf(impact.getOperationalLanes()));
             if (impact.getLanesRestricted() != null)
                 addRow("Lanes restricted", String.valueOf(impact.getLanesRestricted()));
             if (!impact.getDelaysType().isEmpty())
@@ -184,6 +183,9 @@ public class DetailsFragment extends Fragment
         addRow("Created", TextHelper.formatDate(s.getCreationTime()));
         addRow("Last updated", TextHelper.formatDate(s.getVersionTime()));
         addRow("Source", s.getSourceName());
+
+        // back to the top once the new content has been laid out (a new selection starts at the top)
+        scroll.post(() -> scroll.scrollTo(0, 0));
     }
 
     private static String describePoint(LocationPoint p)
