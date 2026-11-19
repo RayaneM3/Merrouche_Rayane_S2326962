@@ -146,6 +146,36 @@ public class SituationParserTest
     }
 
     @Test
+    public void liveFeedsDownloadedOn19November()
+    {
+        // Real feeds downloaded with the app's credentials on 19 Nov 2026 (A4 in the test table)
+        try
+        {
+            String inc = load("liveUnplanned_20261119.xml");
+            String rw = load("liveRoadworks_20261119.xml");
+            List<Situation> incidents = new SituationParser().parse(inc, FeedType.INCIDENT).situations;
+            List<Situation> roadworks = new SituationParser().parse(rw, FeedType.ROADWORKS).situations;
+            assertEquals(count(inc, "<situationRecord "), incidents.size());
+            assertEquals(count(rw, "<situationRecord "), roadworks.size());
+            assertEquals(36, incidents.size());
+            assertEquals(315, roadworks.size());
+            boolean accident = false, obstruction = false;
+            for (Situation s : incidents)
+            {
+                if (s.getKind() == SituationKind.ACCIDENT) accident = true;
+                if (s.getKind() == SituationKind.OBSTRUCTION) obstruction = true;
+                assertFalse(s.getRecordId() + " comment", s.getComment().isEmpty());
+            }
+            assertTrue("accident in live data", accident);
+            assertTrue("obstruction in live data", obstruction);
+        }
+        catch (Exception e)
+        {
+            throw new AssertionError(e);
+        }
+    }
+
+    @Test
     public void searchByRoadAndDistance() throws Exception
     {
         List<Situation> list = parse("unplannedContentExample1.xml", FeedType.INCIDENT);

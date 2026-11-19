@@ -4,7 +4,7 @@ package org.me.gcu.merrouche_rayane_s2326962.model;
 public enum FeedType
 {
     INCIDENT("Unplanned event", "UnplannedEvents"),
-    ROADWORKS("Roadworks", "Roadworks");
+    ROADWORKS("Roadworks", "CurrentRoadworks");
 
     private final String label;
     private final String publication;
