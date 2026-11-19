@@ -30,6 +30,7 @@
     <string name="search_modify">Modify search</string>
     <string name="map_show_all">Show all</string>
     <string name="no_results">No situations found.</string>
+    <string name="loading_data">Downloading the latest data…</string>
     <string name="data_credit">Contains Traffic Scotland data</string>
     <string name="about_text">Real-time unplanned events and roadworks on the Scottish trunk road network.\n\nData source: Traffic Scotland DATEX II feeds (Transport Scotland). Contains Traffic Scotland data.\n\nIcons: original vector drawings made for this app.\n\nThe data is downloaded at start-up and then automatically at the selected interval. When there is no connection, the most recent saved data is shown.</string>
 </resources>

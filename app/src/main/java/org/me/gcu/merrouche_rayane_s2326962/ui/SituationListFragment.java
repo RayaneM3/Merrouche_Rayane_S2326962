@@ -17,6 +17,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.button.MaterialButtonToggleGroup;
 
 import org.me.gcu.merrouche_rayane_s2326962.R;
+import org.me.gcu.merrouche_rayane_s2326962.data.LoadState;
 import org.me.gcu.merrouche_rayane_s2326962.model.FeedType;
 import org.me.gcu.merrouche_rayane_s2326962.model.Situation;
 
@@ -74,6 +75,7 @@ public class SituationListFragment extends Fragment implements SituationAdapter.
 
         // Views observe the ViewModel: they update by themselves when new data is downloaded
         viewModel.getFilteredSituations().observe(getViewLifecycleOwner(), this::showSituations);
+        viewModel.getLoadState().observe(getViewLifecycleOwner(), s -> updateEmptyMessage());
         viewModel.getSelected().observe(getViewLifecycleOwner(),
                 s -> adapter.setSelectedKey(s == null ? null : s.getKey()));
     }
@@ -91,7 +93,19 @@ public class SituationListFragment extends Fragment implements SituationAdapter.
                 + roadworks + " roadworks) · tap one for details");
         legend.setVisibility(viewModel.getListFilter().getValue() == TrafficViewModel.ListFilter.INCIDENTS
                 ? View.GONE : View.VISIBLE);
-        emptyText.setVisibility(situations.isEmpty() ? View.VISIBLE : View.GONE);
+        updateEmptyMessage();
+    }
+
+    /** With no data yet, says whether it is still being downloaded or there really is nothing */
+    private void updateEmptyMessage()
+    {
+        List<Situation> shown = viewModel.getFilteredSituations().getValue();
+        boolean empty = shown == null || shown.isEmpty();
+        LoadState state = viewModel.getLoadState().getValue();
+        boolean loading = state != null && state.status == LoadState.Status.LOADING;
+        emptyText.setText(loading ? R.string.loading_data : R.string.no_results);
+        emptyText.setVisibility(empty ? View.VISIBLE : View.GONE);
+        countText.setVisibility(empty && loading ? View.GONE : View.VISIBLE);
     }
 
     @Override

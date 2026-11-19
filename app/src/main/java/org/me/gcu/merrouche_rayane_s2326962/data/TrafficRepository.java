@@ -64,20 +64,27 @@ public class TrafficRepository
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
     private ScheduledFuture<?> autoUpdate;
     private long intervalMinutes = 60;
+    private ZonedDateTime scheduleStart; // when the current auto-update schedule started
     private final AtomicBoolean updating = new AtomicBoolean(false);
 
     private final MutableLiveData<List<Situation>> situations = new MutableLiveData<>(new ArrayList<>());
     private final MutableLiveData<LoadState> state = new MutableLiveData<>(LoadState.initial());
     private volatile LoadState lastState = LoadState.initial();
+    // Last status other than LOADING: what the user was shown before the update in progress
+    // (null until the first update has finished, so the callback made at start-up does not
+    // trigger a second download next to the start-up one)
+    private volatile LoadState.Status settledStatus = null;
 
     private final ConnectivityManager.NetworkCallback networkCallback = new ConnectivityManager.NetworkCallback()
     {
         @Override
         public void onAvailable(@NonNull Network network)
         {
-            // Connection (re)established: if we were showing saved data, update now
-            LoadState.Status s = lastState.status;
-            if (s == LoadState.Status.OFFLINE_CACHED || s == LoadState.Status.NO_DATA)
+            // Connection (re)established: unless the data is already up to date, update now. The
+            // settled status is used because an (offline) update may be running at this moment;
+            // refreshNow() then runs straight after it on the scheduler thread
+            LoadState.Status settled = settledStatus;
+            if (settled != null && settled != LoadState.Status.UP_TO_DATE)
             {
                 Log.d(TAG, "Connection restored: updating");
                 refreshNow();
@@ -88,6 +95,7 @@ public class TrafficRepository
         public void onLost(@NonNull Network network)
         {
             Log.d(TAG, "Connection lost");
+            // (if an update is running, it will itself report the connection as lost when it ends)
             LoadState.Status s = lastState.status;
             if (s == LoadState.Status.UP_TO_DATE || s == LoadState.Status.ERROR_CACHED)
                 publish(lastState.withStatus(LoadState.Status.OFFLINE_CACHED, "Connection lost"));
@@ -119,13 +127,18 @@ public class TrafficRepository
         return state;
     }
 
-    /** Starts (or restarts with a new interval) the automatic updates; the first one runs now */
+    /**
+     * Starts (or restarts with a new interval) the automatic updates; the first one runs now.
+     * Fixed rate: an update starts every N minutes however long the download takes (if one is
+     * still running when the next is due, that one is skipped by the "updating" flag).
+     */
     public synchronized void startAutoUpdate(long minutes)
     {
         intervalMinutes = Math.max(1, minutes);
         if (autoUpdate != null)
             autoUpdate.cancel(false);
-        autoUpdate = scheduler.scheduleWithFixedDelay(this::update, 0, intervalMinutes, TimeUnit.MINUTES);
+        scheduleStart = ZonedDateTime.now();
+        autoUpdate = scheduler.scheduleAtFixedRate(this::update, 0, intervalMinutes, TimeUnit.MINUTES);
         Log.d(TAG, "Auto-update every " + intervalMinutes + " min");
     }
 
@@ -199,7 +212,7 @@ public class TrafficRepository
 
     private LoadState buildState(FeedOutcome inc, FeedOutcome rw, boolean online)
     {
-        ZonedDateTime next = ZonedDateTime.now().plusMinutes(intervalMinutes);
+        ZonedDateTime next = nextScheduledUpdate();
         ZonedDateTime dataTime = oldest(inc.dataTime, rw.dataTime);
         String error = !inc.error.isEmpty() ? inc.error : rw.error;
         LoadState.Status status;
@@ -208,11 +221,23 @@ public class TrafficRepository
             status = LoadState.Status.NO_DATA;
         else if (bothFresh)
             status = LoadState.Status.UP_TO_DATE;
-        else if (!online)
+        else if (!online || !isOnline()) // no connection at the start, or lost during the download
             status = LoadState.Status.OFFLINE_CACHED;
         else
             status = LoadState.Status.ERROR_CACHED; // one/both feeds failed: saved or partial data
         return new LoadState(status, error, dataTime, next, inc.situations.size(), rw.situations.size());
+    }
+
+    /** Time of the next automatic update: the first start time of the fixed-rate schedule after now */
+    private synchronized ZonedDateTime nextScheduledUpdate()
+    {
+        ZonedDateTime now = ZonedDateTime.now();
+        if (scheduleStart == null)
+            return now.plusMinutes(intervalMinutes);
+        long periodSeconds = intervalMinutes * 60;
+        long elapsed = java.time.Duration.between(scheduleStart, now).getSeconds();
+        long periods = elapsed / periodSeconds + 1;
+        return scheduleStart.plusSeconds(periods * periodSeconds);
     }
 
     private static ZonedDateTime oldest(ZonedDateTime a, ZonedDateTime b)
@@ -225,6 +250,8 @@ public class TrafficRepository
     private void publish(LoadState s)
     {
         lastState = s;
+        if (s.status != LoadState.Status.LOADING)
+            settledStatus = s.status;
         state.postValue(s);
     }
 
