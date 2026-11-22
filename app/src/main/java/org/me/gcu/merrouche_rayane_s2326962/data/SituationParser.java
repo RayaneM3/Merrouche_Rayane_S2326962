@@ -21,11 +21,19 @@ import java.util.Deque;
  * Parses a Traffic Scotland DATEX II publication (already downloaded into a String) using
  * XmlPullParser, and builds the list of Situation objects.
  *
- * The parser keeps a stack with the path of open elements (i.e. situation > situationRecord >
- * groupOfLocations > tpegLinearLocation > to > ilc > descriptor > values > value), so the same tag
- * name (i.e. <value>) can be interpreted according to where it appears. Text is collected in TEXT
- * events and processed at the END_TAG, so unknown/new elements never break the parsing: their
- * values are just kept as "other information".
+ * It follows the same approach as the Lab 3 CompletePullParser ("Thing" collection):
+ *  - the same event loop: while (eventType != END_DOCUMENT) { START_TAG / END_TAG ... xpp.next() }
+ *  - a new Situation object is created at the <situationRecord> START_TAG, filled in while the
+ *    parser is inside it, and added to an ArrayList at its END_TAG
+ *  - text is broken down further (dates, numbers, road names...) before being stored.
+ *
+ * The lab used one flag (insideAThing) to tell a Thing's <description> from the collection's one.
+ * In DATEX II the same tag names appear in many places (i.e. <value> is a comment, a location
+ * name or a source name depending on where it is), so the flag is generalised into a stack with
+ * the path of open elements (i.e. situation > situationRecord > groupOfLocations >
+ * tpegLinearLocation > to > ilc > descriptor > values > value) and inside("...") replaces the flag.
+ * Text is collected in TEXT events and processed at the END_TAG (instead of nextText()), so
+ * unknown/new elements never break the parsing: their values are just kept as "other information".
  */
 public class SituationParser
 {

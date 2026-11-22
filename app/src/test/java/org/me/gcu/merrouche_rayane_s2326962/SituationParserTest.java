@@ -53,8 +53,12 @@ public class SituationParserTest
         String[][] files = {
                 {"unplannedContentExample.xml", "INCIDENT"},
                 {"unplannedContentExample1.xml", "INCIDENT"},
+                {"unplannedContentExample2.xml", "INCIDENT"},
+                {"unplannedContentExample3.xml", "INCIDENT"},
                 {"roadworksContentExample.xml", "ROADWORKS"},
-                {"roadworksContentExample1.xml", "ROADWORKS"}};
+                {"roadworksContentExample1.xml", "ROADWORKS"},
+                {"roadworksContentExample2.xml", "ROADWORKS"},
+                {"roadworksContentExample3.xml", "ROADWORKS"}};
         for (String[] f : files)
         {
             String xml = load(f[0]);
